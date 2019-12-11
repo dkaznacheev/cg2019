@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <title>Task 2</title>
+
+    <style>
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+    <script src="https://threejs.org/build/three.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+
+</head>
+
+<body>
+    <div class="slidecontainer" style="position:absolute">
+      <input type="range" min="0" max="100" value="0.0" class="slider" id="dissolve_slider" onchange="render()">
+      <br>
+      dissolve
+      <br><br>
+       <input type="range" min="0" max="10" value="5" class="slider" id="intensity_slider" onchange="render()">
+      <br>
+      light intensity
+    </div>
+    <div id="scene-container"></div>
+    
+    <script src="script.js"></script>
+</body>
+
+</html>
