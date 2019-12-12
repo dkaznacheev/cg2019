@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://threejs.org/build/three.js"></script>
+    </head>
+    <body style="color: white;">
+        <div class="slidecontainer" style="position:absolute">
+          <input type="range" min="10" max="200" value="100" class="slider" id="zoom_slider" onchange="render()">
+          <br>
+          zoom
+          <br><br>
+          <input type="range" min="4" max="100" value="20" class="slider" id="iter_slider" onchange="render()">
+          <br>
+          iterations
+        </div>
+        <script src="script.js"></script>
+    </body>
+</html>
