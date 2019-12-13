@@ -91,8 +91,13 @@ function init() {
         object.rotateY(2.75);
         object.translateY(-75);
         object.translateX(20);
-        object.children[0].material.transparent = true;
-        object.children[0].material.onBeforeCompile = function (shader) {
+        
+        let child = object.children[0];
+        child.geometry.computeFaceNormals();
+        child.geometry.computeVertexNormals();
+        child.material.shading = THREE.SmoothShading;
+        child.material.transparent = true;
+        child.material.onBeforeCompile = function (shader) {
             shader.uniforms.lightPos = {value: new THREE.Vector4(0.0, 2000.0, 0.0, 1.0)};
             shader.uniforms.intensity = {value: get_intensity_value()};
             shader.uniforms.shininess = {value: 2.0};
@@ -102,7 +107,7 @@ function init() {
             shader.uniforms.specularVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
         
             shader.uniforms.dissolve = {value: get_dissolve_value()};
-            shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise3.jpg')};
+            shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise.jpg')};
             shader.uniforms.modelCenter = {value: new THREE.Vector3(0.0, -75.0, 0.0)};
             
             shader.vertexShader = phongVertex;
