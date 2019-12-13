@@ -1,19 +1,26 @@
 const phongVertex = `
     varying vec3 Normal;
     varying vec3 Position;
+    varying vec3 oldPos;
+    uniform vec3 modelCenter;
     varying vec2 vUv;
+    varying vec3 trueCenter;
     
     void main() {
         vUv = uv;
         Normal = normalize(normalMatrix * normal);
+        oldPos = position;
+        trueCenter = vec3(modelViewMatrix * vec4(modelCenter, 1.0));
         Position = vec3(modelViewMatrix * vec4(position, 1.0));
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
 `;
 
 const phongFragment = `
+    const highp float PI = 3.1415926535897932384626433832795;
     varying vec3 Normal;
     varying vec3 Position;
+    varying vec3 oldPos;
     varying vec2 vUv;
     
     uniform vec4 lightPos;
@@ -24,10 +31,10 @@ const phongFragment = `
     uniform vec3 diffuseVal;
     uniform vec3 specularVal;
     
+    uniform vec3 modelCenter;
     uniform float dissolve;
     uniform sampler2D noise;
-    uniform sampler2D gradient;
-    
+
     vec3 phong() {
         vec3 norm = normalize(Normal);
         vec3 dist = normalize(vec3(lightPos) - Position);
@@ -41,20 +48,26 @@ const phongFragment = `
         return intensity * (amb + diff + spec);
     }
     
-    float mapc(float c) {
-        return floor(c - floor((c + 0.5) / 200.0) * 200.0 + 0.5) / 200.0; 
-    }
-    
     
     void main() {
-        vec4 noise_tex = texture2D(noise, vec2(mapc(Position.x), mapc(Position.y)));
-        float d = (dissolve * 2.0 + noise_tex.x) - 1.0;
-        float saturated = saturate(d * 2.5);
-        vec4 burn_tex = texture2D(gradient, vec2(saturated, 1.0));
+        // slightly moving the center of model to actual center
+        vec3 normPos = normalize(oldPos - vec3(-0.02, 0.09, 0.0));
         
+        // sampling spherical texture
+        float longitude = (atan(abs(normPos.x) / abs(normPos.z)));
+        float latitude = acos(normPos.y);
+        float tex_x = longitude / PI;
+        float tex_y = latitude / PI;
+        vec4 noise_tex = texture2D(noise, vec2(tex_x, tex_y));
+       
         vec4 color = vec4(phong(), 1.0);
-        color *= burn_tex;
-        gl_FragColor = color;
+        
+        if (noise_tex.x > dissolve) {
+            gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+        } else {
+            gl_FragColor = color;
+        }
+        
     }
 `;
 
@@ -77,9 +90,9 @@ function init() {
         object.scale.set(900, 900, 900);
         object.rotateY(2.75);
         object.translateY(-75);
+        object.translateX(20);
         object.children[0].material.transparent = true;
         object.children[0].material.onBeforeCompile = function (shader) {
-        
             shader.uniforms.lightPos = {value: new THREE.Vector4(0.0, 2000.0, 0.0, 1.0)};
             shader.uniforms.intensity = {value: get_intensity_value()};
             shader.uniforms.shininess = {value: 2.0};
@@ -89,8 +102,8 @@ function init() {
             shader.uniforms.specularVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
         
             shader.uniforms.dissolve = {value: get_dissolve_value()};
-            shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise.png')};
-            shader.uniforms.gradient = {value: THREE.ImageUtils.loadTexture('gradient.png')};
+            shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise3.jpg')};
+            shader.uniforms.modelCenter = {value: new THREE.Vector3(0.0, -75.0, 0.0)};
             
             shader.vertexShader = phongVertex;
             shader.fragmentShader = phongFragment;
@@ -98,16 +111,16 @@ function init() {
             materialShader = shader;
 
         };
+        
         scene.add(object);
     });
-
-
+    
     render();
 }
 
 function get_dissolve_value() {
     let slider_value = document.getElementById("dissolve_slider").value;
-    return (100 - slider_value) / 150;
+    return (100 - slider_value) / 100.0;
 }
 
 function get_intensity_value() {
