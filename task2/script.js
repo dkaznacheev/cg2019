@@ -17,6 +17,7 @@ const phongVertex = `
 `;
 
 const phongFragment = `
+    const vec4 defaultColor = vec4(1.0, 0.25, 0.15, 1.0);
     const highp float PI = 3.1415926535897932384626433832795;
     varying vec3 Normal;
     varying vec3 Position;
@@ -34,7 +35,7 @@ const phongFragment = `
     uniform vec3 modelCenter;
     uniform float dissolve;
     uniform sampler2D noise;
-
+    
     vec3 phong() {
         vec3 norm = normalize(Normal);
         vec3 dist = normalize(vec3(lightPos) - Position);
@@ -48,22 +49,24 @@ const phongFragment = `
         return intensity * (amb + diff + spec);
     }
     
-    
-    void main() {
+    vec2 sphere_project(vec3 oldPos, vec3 offset) {
         // slightly moving the center of model to actual center
-        vec3 normPos = normalize(oldPos - vec3(-0.02, 0.09, 0.0));
+        vec3 normPos = normalize(oldPos - offset);
         
         // sampling spherical texture
         float longitude = (atan(abs(normPos.x) / abs(normPos.z)));
         float latitude = acos(normPos.y);
-        float tex_x = longitude / PI;
-        float tex_y = latitude / PI;
-        vec4 noise_tex = texture2D(noise, vec2(tex_x, tex_y));
-       
-        vec4 color = vec4(phong(), 1.0);
+        return vec2(longitude / PI, latitude / PI);
+    }
+    
+    void main() {
+        vec2 noise_point = sphere_project(oldPos, vec3(-0.02, 0.09, 0.0));
+        vec4 noise_tex = texture2D(noise, noise_point);
+        
+        vec4 color = defaultColor * vec4(phong(), 1.0);
         
         if (noise_tex.x > dissolve) {
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
         } else {
             gl_FragColor = color;
         }
@@ -72,19 +75,75 @@ const phongFragment = `
 `;
 
 
-var scene, rendere, camera, controls, materialShader;
+const R = 200;
+var scene, rendere, camera, controls, materialShader, count;
+var cubeMaterial, cubeCamera1, cubeCamera2;
+var mesh1, mesh2;
+
+function doOnBeforeCompile(shader) {
+}
 
 function init() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xDADDFF);
+    new THREE.TextureLoader().load( 'https://threejsfundamentals.org/threejs/resources/images/equirectangularmaps/tears_of_steel_bridge_2k.jpg', function ( texture ) {
+	    texture.mapping = THREE.UVMapping;
+	    initTexture( texture );
+    } );
+}
 
+function initTexture(texture) {
+    scene = new THREE.Scene();
+    
     renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(renderer.domElement);
+    var options = {
+		generateMipmaps: true,
+		minFilter: THREE.LinearMipmapLinearFilter,
+		magFilter: THREE.LinearFilter
+	};
+	scene.background = new THREE.WebGLRenderTargetCube( 1024, 1024, options ).fromEquirectangularTexture( renderer, texture );
     
     camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
     camera.position.set(250, 0, -300);
     controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+    cubeCamera1 = new THREE.CubeCamera( 1, 1000, 256 );
+	cubeCamera1.renderTarget.texture.generateMipmaps = true;
+	cubeCamera1.renderTarget.texture.minFilter = THREE.LinearMipmapLinearFilter;
+	scene.add( cubeCamera1 );
+
+	cubeCamera2 = new THREE.CubeCamera( 1, 1000, 256 );
+	cubeCamera2.renderTarget.texture.generateMipmaps = true;
+	cubeCamera2.renderTarget.texture.minFilter = THREE.LinearMipmapLinearFilter;
+	scene.add( cubeCamera2 );
+
+    count = 1;
+    
+	cubeMaterial = new THREE.MeshBasicMaterial( {
+		envMap: cubeCamera2.renderTarget.texture,
+	} );
+    cubeMaterial.flatShading = THREE.SmoothShading;
+	    
+	var cmaterial = new THREE.MeshBasicMaterial();
+    cmaterial.flatShading = THREE.SmoothShading;
+    cmaterial.transparent = true;
+    cmaterial.onBeforeCompile = function (shader) {
+        shader.uniforms.lightPos = {value: new THREE.Vector4(0.0, 2000.0, 100.0, 1.0)};
+        shader.uniforms.intensity = {value: get_intensity_value()};
+        shader.uniforms.shininess = {value: 2.0};
+    
+        shader.uniforms.ambientVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
+        shader.uniforms.diffuseVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
+        shader.uniforms.specularVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
+    
+        shader.uniforms.dissolve = {value: get_dissolve_value()};
+        shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise.jpg')};
+        shader.uniforms.modelCenter = {value: new THREE.Vector3(0.0, -75.0, 0.0)};
+                    
+        shader.vertexShader = phongVertex;
+        shader.fragmentShader = phongFragment;
+        materialShader = shader;
+    };
+        
     
     new THREE.OBJLoader().load('stanford_bunny.obj', function (object) {
         object.scale.set(900, 900, 900);
@@ -95,30 +154,23 @@ function init() {
         let child = object.children[0];
         child.geometry.computeFaceNormals();
         child.geometry.computeVertexNormals();
-        child.material.shading = THREE.SmoothShading;
-        child.material.transparent = true;
-        child.material.onBeforeCompile = function (shader) {
-            shader.uniforms.lightPos = {value: new THREE.Vector4(0.0, 2000.0, 0.0, 1.0)};
-            shader.uniforms.intensity = {value: get_intensity_value()};
-            shader.uniforms.shininess = {value: 2.0};
-        
-            shader.uniforms.ambientVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
-            shader.uniforms.diffuseVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
-            shader.uniforms.specularVal = {value: new THREE.Vector3(0.5, 0.5, 0.5)};
-        
-            shader.uniforms.dissolve = {value: get_dissolve_value()};
-            shader.uniforms.noise = {value: THREE.ImageUtils.loadTexture('noise.jpg')};
-            shader.uniforms.modelCenter = {value: new THREE.Vector3(0.0, -75.0, 0.0)};
-            
-            shader.vertexShader = phongVertex;
-            shader.fragmentShader = phongFragment;
-
-            materialShader = shader;
-
-        };
-        
+        child.material = cubeMaterial;
+       
         scene.add(object);
     });
+    
+    var geometry = new THREE.TorusKnotBufferGeometry( 30, 15, 100, 25 );
+    geometry.computeFaceNormals();
+    geometry.computeVertexNormals();
+    var simpleMaterial = cmaterial;
+    
+    mesh1 = new THREE.Mesh(geometry, simpleMaterial );
+    scene.add(mesh1);
+        
+    mesh2 = new THREE.Mesh(geometry, simpleMaterial);
+    scene.add(mesh2);
+    
+    document.body.appendChild(renderer.domElement);
     
     render();
 }
@@ -134,6 +186,25 @@ function get_intensity_value() {
 }
 
 function render() {
+    var time = Date.now();
+    
+    mesh1.position.x = Math.cos( time * 0.001 ) * R;
+    mesh1.position.y = Math.sin( time * 0.001 ) * R;
+    mesh1.position.z = Math.sin( time * 0.001 ) * R;
+
+    mesh2.position.x = -Math.sin( time * 0.001 ) * R;
+    mesh2.position.y = Math.cos( time * 0.001 ) * R;
+    mesh2.position.z = -Math.cos( time * 0.001 ) * R;
+
+    let cubeCamera = cubeCamera1;
+    if (count > 0) {
+        cubeCamera = cubeCamera2;
+    }
+    count *= -1;
+    
+    cubeCamera.update( renderer, scene );
+	cubeMaterial.envMap = cubeCamera.renderTarget.texture;
+
     const canvas = renderer.domElement;
     if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
