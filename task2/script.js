@@ -159,9 +159,9 @@ function initTexture(texture) {
         scene.add(object);
     });
     
-    var geometry = new THREE.TorusKnotBufferGeometry( 30, 15, 100, 25 );
+    var geometry = new THREE.TorusKnotBufferGeometry( 30, 10, 100, 25 );
     geometry.computeFaceNormals();
-    geometry.computeVertexNormals();
+    
     var simpleMaterial = cmaterial;
     
     mesh1 = new THREE.Mesh(geometry, simpleMaterial );
