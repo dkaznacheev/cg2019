@@ -1,0 +1,75 @@
+const phongVertex = `
+    varying vec3 Normal;
+    varying vec3 Position;
+    varying vec3 oldPos;
+    uniform vec3 modelCenter;
+    varying vec2 vUv;
+    varying vec3 trueCenter;
+    
+    void main() {
+        vUv = uv;
+        Normal = normalize(normalMatrix * normal);
+        oldPos = position;
+        trueCenter = vec3(modelViewMatrix * vec4(modelCenter, 1.0));
+        Position = vec3(modelViewMatrix * vec4(position, 1.0));
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const phongFragment = `
+    const vec4 defaultColor = vec4(1.0, 0.25, 0.15, 1.0);
+    const highp float PI = 3.1415926535897932384626433832795;
+    varying vec3 Normal;
+    varying vec3 Position;
+    varying vec3 oldPos;
+    varying vec2 vUv;
+    
+    uniform vec4 lightPos;
+    uniform vec3 intensity;
+    uniform float shininess;
+  
+    uniform vec3 ambientVal;
+    uniform vec3 diffuseVal;
+    uniform vec3 specularVal;
+    
+    uniform vec3 modelCenter;
+    uniform float dissolve;
+    uniform sampler2D noise;
+    
+    vec3 phong() {
+        vec3 norm = normalize(Normal);
+        vec3 dist = normalize(vec3(lightPos) - Position);
+        vec3 v = normalize(vec3(-Position));
+        
+        vec3 refl = reflect(-dist, norm);
+        vec3 amb = ambientVal;
+        
+        vec3 diff = diffuseVal * max(dot(dist, norm), 0.0);
+        vec3 spec = specularVal * pow(max(dot(refl, v), 0.0), shininess);
+        return intensity * (amb + diff + spec);
+    }
+    
+    vec2 sphere_project(vec3 oldPos, vec3 offset) {
+        // slightly moving the center of model to actual center
+        vec3 normPos = normalize(oldPos - offset);
+        
+        // sampling spherical texture
+        float longitude = (atan(abs(normPos.x) / abs(normPos.z)));
+        float latitude = acos(normPos.y);
+        return vec2(longitude / PI, latitude / PI);
+    }
+    
+    void main() {
+        vec2 noise_point = sphere_project(oldPos, vec3(-0.02, 0.09, 0.0));
+        vec4 noise_tex = texture2D(noise, noise_point);
+        
+        vec4 color = defaultColor * vec4(phong(), 1.0);
+        
+        if (noise_tex.x > dissolve) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        } else {
+            gl_FragColor = color;
+        }
+        
+    }
+`;
