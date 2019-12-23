@@ -3,7 +3,7 @@ var scene, renderer, camera, controls, materialShader, count;
 var light;
 var blockSize, slices, boxGeom, boxMat;
 var boxes;
-
+var boxSet;
 function init() {
     /*new THREE.TextureLoader().load( 'https://threejsfundamentals.org/threejs/resources/images/equirectangularmaps/tears_of_steel_bridge_2k.jpg', function ( texture ) {
 	    texture.mapping = THREE.UVMapping;
@@ -11,6 +11,11 @@ function init() {
     } );
     */
     initTexture(null);
+}
+
+function setBlockText() {
+    let v = Math.floor(document.getElementById("blocks_slider").value);
+    document.getElementById("block_num").innerText = "" + v;
 }
 
 function addLight() {
@@ -52,16 +57,24 @@ function intersect_face(v1, v2, v3, z, blockSize) {
 }
 
 function roundBlock(n) {
-    return Math.floor(n / blockSize) * blockSize;
+    return  Math.round(Math.floor(n / blockSize) * blockSize);
 }
 
 
 function add_cube(x, y, z) {
+    let rx = roundBlock(x);
+    let ry = roundBlock(y);
+    let rz = roundBlock(z);
+    let rhash = "" + rx + "; " + ry + "; " + rz;
+    if (boxSet[rhash]) {
+        return;
+    }
+    boxSet[rhash] = true;
     if (!boxes) {
         boxes = new THREE.Geometry();
     }
     var translation = new THREE.Matrix4();
-    translation.makeTranslation(x, y, z);
+    translation.makeTranslation(rx, ry, rz);
     boxes.merge(boxGeom.clone(), translation);
 };
 
@@ -96,14 +109,11 @@ function fill_face(v1, v2, v3, z) {
         v2 = [v3, v3 = v2][0];
     }
         
-    //add_cube(v1.x, v1.y, v1.z);
-    //add_cube(v2.x, v2.y, v2.z);
-    //add_cube(v3.x, v3.y, v3.z);
     add_in_line(v1, v2);
     add_in_line(v2, v3);
     add_in_line(v1, v3);
-    
-    /*for (var x = roundBlock(v1.x); x < v3.x; x += blockSize) {
+    /*
+    for (var x = roundBlock(v1.x); x < v3.x; x += blockSize) {
         let a = new THREE.Vector3(x, v1.y + (x - v1.x) / (v3.x - v1.x) * (v3.y - v1.y), z);
         if (x <= v2.x) {           
             let b = new THREE.Vector3(x, v1.y + (x - v1.x) / (v2.x - v1.x) * (v2.y - v1.y), z);
@@ -114,24 +124,24 @@ function fill_face(v1, v2, v3, z) {
         }
     }
     */
+    
 }
 
-function initTexture(texture) {
-    scene = new THREE.Scene();
-    
-    renderer = new THREE.WebGLRenderer({antialias: true});
-    renderer.setPixelRatio(window.devicePixelRatio);
-	
-    scene.background = new THREE.Color( 0xBEDEAD );
-    addLight();
+
+function loadModel() {
+    boxSet = {};
+    while(scene.children.length > 0){ 
+        scene.remove(scene.children[0]);
+    }
     
     camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
     camera.position.set(250, 0, -300);
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     //controls.target = new THREE.Vector3(-15, 70, 0);
     controls.update();
-   
-    var cmaterial = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
+
+    addLight();
+    let cmaterial = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
     
     new THREE.OBJLoader().load('stanford_bunny.obj', function (object) {
         object.scale.set(900, 900, 900);
@@ -141,20 +151,19 @@ function initTexture(texture) {
         child.geometry.computeFaceNormals();
         child.geometry.computeVertexNormals();
 
-        var geom = new THREE.Geometry();
+        let geom = new THREE.Geometry();
 
         boxMat = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
         geom.fromBufferGeometry(child.geometry);
+        let bbox = new THREE.Box3().setFromObject(object);  
+        
+        blockSize = Math.floor(document.getElementById("blocks_slider").value);
+        slices = Math.round((bbox.max.z - bbox.min.z) / blockSize);
+       // console.log(slices);
 
-        slices = 50;
-        var bbox = new THREE.Box3().setFromObject(object);  
-        
-        
-        blockSize = (bbox.max.z - bbox.min.z) / slices;
         boxGeom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-        //boxGeom.computeFaceNormals();
-        //boxGeom.computeVertexNormals();
         
+        let load_i = 0;
         for (const face of geom.faces) {
             let v1 = geom.vertices[face.a].clone().multiplyScalar(900);
             let v2 = geom.vertices[face.b].clone().multiplyScalar(900);
@@ -169,7 +178,8 @@ function initTexture(texture) {
                 v2 = [v3, v3 = v2][0];
             }
             
-            for (const i of Array(slices + 5).keys()) {        
+            for (const i of Array(slices + 5).keys()) {   
+
                 let z = bbox.min.z + i * blockSize;
                 let face_sects = intersect_face(v1, v2, v3, z, blockSize);
                 
@@ -181,18 +191,32 @@ function initTexture(texture) {
                     }
                 }
             }
-            
+            let progress = Math.floor(100 * load_i / geom.faces.length);
+            document.getElementById("reload_button").innerHTML = "" + progress + "%";
+            load_i++;
         }
         
-        var merged = new THREE.Mesh(boxes, boxMat);
+        boxes.computeFaceNormals();
+        boxes.computeVertexNormals();
+        let merged = new THREE.Mesh(boxes, boxMat);
         scene.add(merged);
-  
-        //scene.add(object);
+        document.getElementById("reload_button").innerHTML = "Reload";
     });
+ 
+    render();
+}
+
+function initTexture(texture) {
+    scene = new THREE.Scene();
+    
+    renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setPixelRatio(window.devicePixelRatio);
+	
+    scene.background = new THREE.Color( 0xBEDEAD );
     
     document.body.appendChild(renderer.domElement);
     
-    render();
+    loadModel();
 }
 
 function render() {

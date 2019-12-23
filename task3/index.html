@@ -26,14 +26,12 @@
 
 <body>
     <div class="slidecontainer" style="position:absolute">
-     <!-- <input type="range" min="0" max="60" value="0.0" class="slider" id="dissolve_slider" onchange="render()">
-      <br>
-      dissolve
-      <br><br>
-       <input type="range" min="0" max="10" value="5" class="slider" id="intensity_slider" onchange="render()">
-      <br>
-      light intensity
-    --->
+     <input type="range" min="1" max="40" value="3" class="slider" id="blocks_slider" onchange="setBlockText()">
+     <br>
+     block size 
+     <div id="block_num">3</div>
+     <br>
+     <button onclick="loadModel()" id="reload_button"> Reload</button>
     </div>
     <div id="scene-container"></div>
     
