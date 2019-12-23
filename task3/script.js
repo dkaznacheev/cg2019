@@ -1,7 +1,7 @@
 const R = 200;
 var scene, renderer, camera, controls, materialShader, count;
 var light;
-var boxSize, slices, boxGeom, boxMat;
+var blockSize, slices, boxGeom, boxMat;
 
 function init() {
     /*new THREE.TextureLoader().load( 'https://threejsfundamentals.org/threejs/resources/images/equirectangularmaps/tears_of_steel_bridge_2k.jpg', function ( texture ) {
@@ -22,12 +22,12 @@ function addLight() {
     scene.add( hlight );
 }
 
-function intersect_face(v1, v2, v3, z, boxSize) {
+function intersect_face(v1, v2, v3, z, blockSize) {
     if (v1.z >= z) {
         return [];
     }
     
-    if (v1.z > z - boxSize && v3.z < z) {
+    if (v1.z > z - blockSize && v3.z < z) {
         //project plane
         return [[new THREE.Vector3(v1.x, v1.y, z), new THREE.Vector3(v2.x, v2.y, z)],
                 [new THREE.Vector3(v2.x, v2.y, z), new THREE.Vector3(v3.x, v3.y, z)],
@@ -39,38 +39,38 @@ function intersect_face(v1, v2, v3, z, boxSize) {
     }
     
     // intersect v1-v3 and (v1-v2 or v2-v3)
-    //let res = [new THREE.Vector3(v1.x + )]
-    return [];
+    return [[new THREE.Vector3(v1.x, v1.y, v1.z), new THREE.Vector3(v3.x, v3.y, v3.z)]];
 }
-
-function add_cube(x, y, z) {
-    let newbox = new THREE.Mesh(boxGeom, boxMat);
-    newbox.translateZ(z);
-    newbox.translateY(y);
-    newbox.translateX(x);
-    scene.add(newbox);
-};
 
 function roundBlock(n) {
     return Math.floor(n / blockSize) * blockSize;
 }
 
+
+function add_cube(x, y, z) {
+    let newbox = new THREE.Mesh(boxGeom, boxMat);
+    newbox.translateZ(roundBlock(z));
+    newbox.translateY(roundBlock(y));
+    newbox.translateX(roundBlock(x));
+    scene.add(newbox);
+};
+
 function add_in_line(a, b) {
-    add_cube(roundBlock(a.x), roundBlock(a.y), z);
-    return;
     if (a.x >= b.x) {
         a = [b, b = a][0];
     }
-    if (b.x - a.x == 0 || (b.x - a.x) < Math.abs(b.y - a.y)) {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    if (dx == 0 || dx < Math.abs(dy)) {
         if (a.y >= b.y) {
             a = [b, b = a][0];
         }
-        for (const y = roundBlock(a.y) * blockSize; x < b.y + blockSize; x += blockSize) {
+        for (var y = roundBlock(a.y) * blockSize; y < b.y + blockSize; y += blockSize) {
             add_cube(roundBlock(a.x + dx * (y - a.y) / dy), y, a.z);
         };
         return;
     }
-    for (const x = roundBlock(a.x); x < b.x + blockSize; x += blockSize) {
+    for (var x = roundBlock(a.x); x < b.x + blockSize; x += blockSize) {
         add_cube(x, roundBlock(a.y + dy * (x - a.x) / dx), a.z);
     };
 }
@@ -90,7 +90,7 @@ function initTexture(texture) {
     controls.target = new THREE.Vector3(-15, 70, 0);
     controls.update();
    
-    var cmaterial =  new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
+    var cmaterial = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
     
     new THREE.OBJLoader().load('stanford_bunny.obj', function (object) {
         object.scale.set(900, 900, 900);
@@ -101,24 +101,25 @@ function initTexture(texture) {
         child.geometry.computeVertexNormals();
 
         var geom = new THREE.Geometry();
-        boxMat = new THREE.MeshBasicMaterial( {color: 0x888888} );
+        //var geom = new THREE.BoxGeometry(500, 500, 500);
+        //let testMesh = new THREE.Mesh(geom, cmaterial);
+        boxMat = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
 
         geom.fromBufferGeometry(child.geometry);
         console.log(geom);
         
-        slices = 20;
+        slices = 10;
         var bbox = new THREE.Box3().setFromObject(object);  
-        
-        boxSize = (bbox.max.z - bbox.min.z) / slices;
-        boxGeom = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+//        var bbox = new THREE.Box3().setFromObject(testMesh);  
+        blockSize = (bbox.max.z - bbox.min.z) / slices;
+        boxGeom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
         boxGeom.computeFaceNormals();
         boxGeom.computeVertexNormals();
         
         for (const face of geom.faces) {
-            console.log(geom.vertices[face.a]);
-            let v1 = geom.vertices[face.a];
-            let v2 = geom.vertices[face.b];
-            let v3 = geom.vertices[face.c];
+            let v1 = geom.vertices[face.a].clone().multiplyScalar(900);
+            let v2 = geom.vertices[face.b].clone().multiplyScalar(900);
+            let v3 = geom.vertices[face.c].clone().multiplyScalar(900);
             if (v1.z > v2.z) {
                 v2 = [v1, v1 = v2][0];
             }
@@ -130,8 +131,8 @@ function initTexture(texture) {
             }
             
             for (const i of Array(slices + 5).keys()) {        
-                let z = bbox.min.z + i * boxSize;
-                let face_sects = intersect_face(v1, v2, v3, z, boxSize);
+                let z = bbox.min.z + i * blockSize;
+                let face_sects = intersect_face(v1, v2, v3, z, blockSize);
                 
                 for (const sect of face_sects) {
                     add_in_line(sect[0], sect[1]);
@@ -140,7 +141,7 @@ function initTexture(texture) {
         }
         /*
         for (const i of Array(slices + 5).keys()) {
-            let z = bbox.min.z + i * boxSize;
+            let z = bbox.min.z + i * blockSize;
             
             var planeg = new THREE.PlaneGeometry(bbox.max.x - bbox.min.x + 10, bbox.max.y - bbox.min.y + 10);
             var plane = new THREE.Mesh(planeg, cmaterial);
@@ -151,7 +152,7 @@ function initTexture(texture) {
         }
         */
   
-        scene.add(object);
+        //scene.add(object);
     });
     
     document.body.appendChild(renderer.domElement);
