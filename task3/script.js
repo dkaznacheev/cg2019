@@ -2,6 +2,7 @@ const R = 200;
 var scene, renderer, camera, controls, materialShader, count;
 var light;
 var blockSize, slices, boxGeom, boxMat;
+var boxes;
 
 function init() {
     /*new THREE.TextureLoader().load( 'https://threejsfundamentals.org/threejs/resources/images/equirectangularmaps/tears_of_steel_bridge_2k.jpg', function ( texture ) {
@@ -56,11 +57,12 @@ function roundBlock(n) {
 
 
 function add_cube(x, y, z) {
-    let newbox = new THREE.Mesh(boxGeom, boxMat);
-    newbox.translateZ(roundBlock(z));
-    newbox.translateY(roundBlock(y));
-    newbox.translateX(roundBlock(x));
-    scene.add(newbox);
+    if (!boxes) {
+        boxes = new THREE.Geometry();
+    }
+    var translation = new THREE.Matrix4();
+    translation.makeTranslation(x, y, z);
+    boxes.merge(boxGeom.clone(), translation);
 };
 
 function add_in_line(a, b) {
@@ -84,8 +86,6 @@ function add_in_line(a, b) {
 }
 
 function fill_face(v1, v2, v3, z) {
-
-    console.log("!");
     if (v1.x > v2.x) {
         v2 = [v1, v1 = v2][0];
     }
@@ -96,7 +96,14 @@ function fill_face(v1, v2, v3, z) {
         v2 = [v3, v3 = v2][0];
     }
         
-    for (var x = roundBlock(v1.x); x < v3.x; x += blockSize) {
+    //add_cube(v1.x, v1.y, v1.z);
+    //add_cube(v2.x, v2.y, v2.z);
+    //add_cube(v3.x, v3.y, v3.z);
+    add_in_line(v1, v2);
+    add_in_line(v2, v3);
+    add_in_line(v1, v3);
+    
+    /*for (var x = roundBlock(v1.x); x < v3.x; x += blockSize) {
         let a = new THREE.Vector3(x, v1.y + (x - v1.x) / (v3.x - v1.x) * (v3.y - v1.y), z);
         if (x <= v2.x) {           
             let b = new THREE.Vector3(x, v1.y + (x - v1.x) / (v2.x - v1.x) * (v2.y - v1.y), z);
@@ -106,6 +113,7 @@ function fill_face(v1, v2, v3, z) {
             add_in_line(a, b);
         }
     }
+    */
 }
 
 function initTexture(texture) {
@@ -133,30 +141,24 @@ function initTexture(texture) {
         child.geometry.computeFaceNormals();
         child.geometry.computeVertexNormals();
 
-//        var geom = new THREE.Geometry();
-        var geom = new THREE.BoxGeometry(100, 100, 100);
-        let testMesh = new THREE.Mesh(geom, cmaterial);
-//        scene.add(testMesh);
+        var geom = new THREE.Geometry();
+
         boxMat = new THREE.MeshPhongMaterial({color: 0xffffff, side:THREE.DoubleSide});
+        geom.fromBufferGeometry(child.geometry);
 
-//        geom.fromBufferGeometry(child.geometry);
-
-        
-        slices = 10;
-//        var bbox = new THREE.Box3().setFromObject(object);  
-        var bbox = new THREE.Box3().setFromObject(testMesh);  
-        console.log(bbox);
+        slices = 50;
+        var bbox = new THREE.Box3().setFromObject(object);  
         
         
         blockSize = (bbox.max.z - bbox.min.z) / slices;
         boxGeom = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-        boxGeom.computeFaceNormals();
-        boxGeom.computeVertexNormals();
+        //boxGeom.computeFaceNormals();
+        //boxGeom.computeVertexNormals();
         
         for (const face of geom.faces) {
-            let v1 = geom.vertices[face.a].clone();//.multiplyScalar(900);
-            let v2 = geom.vertices[face.b].clone();//.multiplyScalar(900);
-            let v3 = geom.vertices[face.c].clone();//.multiplyScalar(900);
+            let v1 = geom.vertices[face.a].clone().multiplyScalar(900);
+            let v2 = geom.vertices[face.b].clone().multiplyScalar(900);
+            let v3 = geom.vertices[face.c].clone().multiplyScalar(900);
             if (v1.z > v2.z) {
                 v2 = [v1, v1 = v2][0];
             }
@@ -182,6 +184,8 @@ function initTexture(texture) {
             
         }
         
+        var merged = new THREE.Mesh(boxes, boxMat);
+        scene.add(merged);
   
         //scene.add(object);
     });
