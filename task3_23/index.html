@@ -24,9 +24,10 @@
 
 <body>
     <div class="slidecontainer" style="position:absolute">
-        <input type="range" min="0" max="100" value="0" class="slider" id="position_slider">
-        <br>
-        position 
+        <input type="range" min="1" max="100" value="100" class="slider" id="left_leg" oninput="update_left_leg()">
+        <br>left leg<br><br>
+        <input type="range" min="1" max="100" value="100" class="slider" id="right_leg" oninput="update_right_leg()">
+        <br>right leg
     </div>
     <div id="scene-container"></div>
     
