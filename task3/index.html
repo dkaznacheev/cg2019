@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <title>Task 3</title>
+
+    <style>
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+    <script src="https://threejs.org/build/three.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MMDLoader.js"></script>
+    <script src="mmdparser.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+
+</head>
+
+<body>
+    <div class="slidecontainer" style="position:absolute">
+     <input type="range" min="1" max="40" value="3" class="slider" id="blocks_slider" onchange="setBlockText()">
+     <br>
+     block size 
+     <div id="block_num">3</div>
+     <br>
+     <button onclick="loadModel()" id="reload_button"> Reload</button>
+    </div>
+    <div id="scene-container"></div>
+    
+    <script src="script.js"></script>
+</body>
+
+</html>
