@@ -6,6 +6,11 @@ var light;
 var runAction;
 var runWeight;
 var actions, settings;
+var lleg, rleg;
+const r0 = 3.141592;
+var t = 0;
+var tr = -2;
+var tl = -2;
 
 function addLight() {
 	light = new THREE.PointLight( 0x888888, 1, 100 );
@@ -17,6 +22,35 @@ function addLight() {
     scene.add( hlight );
 }
 
+function ik_leg(leg, val) {
+    let alpha = Math.acos(val);
+    leg.hip.rotation.x = r0 - alpha;
+    leg.knee.rotation.x = r0 - (3.141592 - 2 * alpha);
+}
+
+function update_left_leg() {
+    tl = t;
+    let val = document.getElementById("left_leg").value / 100;
+    ik_leg(lleg, val);
+}
+
+function update_right_leg() {
+    tr = t;
+    let val = document.getElementById("right_leg").value / 100;
+    ik_leg(rleg, val);
+}
+
+function setleg(leg, index) {
+    leg = {};
+    leg.hip = skeleton.bones[index];
+    leg.knee = skeleton.bones[index + 1];
+    leg.foot = skeleton.bones[index + 2];
+    
+    leg.hip_size = 1;
+    leg.knee_size = 1;
+    return leg;
+}
+
 function loadModel(texture) {    
     camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
     camera.position.set(250, 0, -300);
@@ -25,10 +59,10 @@ function loadModel(texture) {
     controls.update();
 
     addLight();
+    
 
 	clock = new THREE.Clock();    
     new THREE.GLTFLoader().load( 'Soldier.glb', function ( gltf ) {
-        console.log(gltf);
         let object = gltf.scene;
         object.scale.set(100, 100, 100);
     	scene.add(object);
@@ -36,18 +70,14 @@ function loadModel(texture) {
         skeleton = new THREE.SkeletonHelper( object );
 		skeleton.visible = true;
 		scene.add( skeleton );
+    
+        var boxMat = new THREE.MeshBasicMaterial({color: 0xffffff});
+        var boxGeom = new THREE.SphereGeometry(5, 15);
         
-        var animations = gltf.animations;
-	    mixer = new THREE.AnimationMixer( object );
-	    console.log(animations[1]);
-	    runAction = mixer.clipAction(animations[1]);
-	    runAction.enabled = true;
-		runAction.setEffectiveTimeScale( 1 );
-		runAction.setEffectiveWeight(1);
-		runAction.play();
+        lleg = setleg(lleg, 45);
+        rleg = setleg(rleg, 41);
+      
         render();
-	
-		
     });
 }
 
@@ -77,10 +107,13 @@ function render() {
         camera.aspect = canvas.clientWidth / canvas.clientHeight;
         camera.updateProjectionMatrix();
     }
-    
-    if (mixer) {
-	    var mixerUpdateDelta = clock.getDelta();
-	    mixer.update( mixerUpdateDelta );
+    t += 0.1;
+    let a = (1 + Math.sin(t)) / 2;
+    if (lleg && t - tl > 2) { 
+        ik_leg(lleg, a); 
+    }
+    if (lleg && t - tr > 2) { 
+        ik_leg(rleg, 1 - a); 
     }
     renderer.render(scene, camera);
     requestAnimationFrame(render);
